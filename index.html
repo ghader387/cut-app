@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>کابینت‌ساز | KitchenGo Style</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap');
+        
+        * { box-sizing: border-box; font-family: 'Vazirmatn', Tahoma, sans-serif; margin: 0; padding: 0; }
+        
+        :root {
+            --bg: #0f1117;
+            --panel: #161b22;
+            --card: #1c2128;
+            --border: #30363d;
+            --accent: #00c2ff;
+            --accent-hover: #00a8e0;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --success: #3fb950;
+            --danger: #f85149;
+        }
+        
+        body { 
+            height: 100vh; 
+            background: var(--bg); 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            color: var(--text); 
+        }
+        
+        /* ===== HEADER ===== */
+        .header { 
+            background: var(--panel); 
+            padding: 10px 16px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid var(--border); 
+            z-index: 20;
+        }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .logo { 
+            font-size: 17px; 
+            font-weight: 700; 
+            color: var(--accent); 
+            display: flex; 
+            align-items: center; 
+            gap: 6px;
+        }
+        .logo span { color: var(--text); font-weight: 500; font-size: 13px; }
+        .badge { 
+            background: linear-gradient(135deg, #00c2ff, #0077b6); 
+            color: #000; 
+            font-size: 10px; 
+            padding: 2px 8px; 
+            border-radius: 20px; 
+            font-weight: 600;
+        }
+        
+        .header-right { display: flex; gap: 8px; align-items: center; }
+        .btn-icon { 
+            background: var(--card); 
+            border: 1px solid var(--border); 
+            color: var(--text); 
+            padding: 6px 12px; 
+            border-radius: 6px; 
+            font-size: 12px; 
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+        
+        /* ===== TABS ===== */
+        .tabs { 
+            display: flex; 
+            background: var(--panel); 
+            border-bottom: 1px solid var(--border); 
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab { 
+            flex: 1; 
+            min-width: 90px;
+            text-align: center; 
+            padding: 12px 8px; 
+            font-size: 12px; 
+            font-weight: 600; 
+            color: var(--muted); 
+            cursor: pointer; 
+            border-bottom: 2px solid transparent; 
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+        .tab:hover { color: var(--text); background: rgba(0,194,255,0.05); }
+        .tab.active { 
+            color: var(--accent); 
+            border-bottom-color: var(--accent); 
+            background: rgba(0,194,255,0.08); 
+        }
+        
+        /* ===== CONTENT ===== */
+        .content-area { flex-grow: 1; position: relative; overflow: hidden; background: var(--bg); }
+        .tab-content { display: none; width: 100%; height: 100%; position: absolute; top:0; left:0; overflow-y: auto; }
+        .tab-content.active { display: block; }
+        
+        #canvas-container { 
+            width: 100%; 
+            height: 100%; 
+            display: block; 
+            background: radial-gradient(ellipse at center, #1a1f2e 0%, #0f1117 70%); 
+        }
+        .dimension-label { 
+            color: #fff; 
+            font-size: 11px; 
+            background: rgba(0,194,255,0.9); 
+            padding: 2px 7px; 
+            border-radius: 4px; 
+            transform: translate(-50%, -50%); 
+            pointer-events: none;
+            font-weight: 600;
+        }
+        
+        /* ===== TABLE ===== */
+        .table-container { padding: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; }
+        th, td { border: 1px solid var(--border); padding: 11px 8px; }
+        th { 
+            background: var(--card); 
+            color: var(--accent); 
+            position: sticky; 
+            top: 0; 
+            font-weight: 600;
+        }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        tr:hover { background: rgba(0,194,255,0.05); }
+        
+        /* ===== NESTING ===== */
+        #nesting-canvas { width: 100%; height: 100%; display: block; background: #0d1117; }
+        #nesting-info { 
+            position: absolute; 
+            top: 12px; 
+            right: 12px; 
+            background: rgba(22,27,34,0.95); 
+            padding: 12px 14px; 
+            border-radius: 10px; 
+            font-size: 12px; 
+            border: 1px solid var(--border); 
+            z-index: 20;
+            min-width: 140px;
+        }
+        
+        /* ===== FINANCE ===== */
+        .finance-wrapper { padding: 16px; max-width: 520px; margin: 0 auto; }
+        .finance-card { 
+            background: var(--card); 
+            border: 1px solid var(--border); 
+            border-radius: 12px; 
+            padding: 16px; 
+            margin-bottom: 14px; 
+        }
+        .finance-card h3 { 
+            font-size: 14px; 
+            color: var(--accent); 
+            margin-bottom: 12px; 
+            border-bottom: 1px solid var(--border); 
+            padding-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .price-inputs { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 10px; 
+            margin-bottom: 14px;
+        }
+        .total-cost { 
+            font-size: 17px; 
+            color: var(--success); 
+            text-align: center; 
+            padding: 14px; 
+            background: rgba(63,185,80,0.1); 
+            border: 1px solid rgba(63,185,80,0.3); 
+            border-radius: 10px; 
+            margin-top: 8px;
+            font-weight: 600;
+        }
+        .stat-row { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 9px 0; 
+            border-bottom: 1px dashed var(--border); 
+            font-size: 13px;
+        }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row span:last-child { font-weight: 600; color: #ff7b72; }
+        
+        /* ===== CONTROLS ===== */
+        .controls-panel { 
+            background: var(--panel); 
+            padding: 14px 16px; 
+            border-top: 1px solid var(--border); 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            z-index: 15;
+        }
+        .inputs-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .input-group { 
+            flex: 1; 
+            min-width: 70px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 5px; 
+        }
+        .input-group label { 
+            font-size: 11px; 
+            color: var(--muted); 
+            text-align: center; 
+            font-weight: 500;
+        }
+        .input-group input:not([type="color"]), 
+        .input-group select { 
+            padding: 9px 6px; 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            text-align: center; 
+            font-size: 13px; 
+            color: var(--text); 
+            background: var(--card); 
+            outline: none;
+            transition: 0.2s;
+        }
+        .input-group input:focus, 
+        .input-group select:focus { 
+            border-color: var(--accent); 
+            box-shadow: 0 0 0 2px rgba(0,194,255,0.15);
+        }
+        
+        /* Toggle */
+        .switch { 
+            position: relative; 
+            display: inline-block; 
+            width: 42px; 
+            height: 24px; 
+            margin: 4px auto 0;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { 
+            position: absolute; 
+            cursor: pointer; 
+            top: 0; left: 0; right: 0; bottom: 0; 
+            background-color: #30363d; 
+            transition: .3s; 
+            border-radius: 24px; 
+        }
+        .slider:before { 
+            position: absolute; 
+            content: ""; 
+            height: 16px; 
+            width: 16px; 
+            left: 4px; 
+            bottom: 4px; 
+            background-color: white; 
+            transition: .3s; 
+            border-radius: 50%; 
+        }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(18px); }
+        
+        /* Color */
+        input[type="color"] { 
+            -webkit-appearance: none; 
+            border: 1px solid var(--border); 
+            width: 100%; 
+            height: 36px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            padding: 2px; 
+            background: var(--card);
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { 
+            border: none; 
+            border-radius: 6px; 
+        }
+        
+        .btn-main { 
+            background: linear-gradient(135deg, #00c2ff, #0090c5); 
+            color: #000; 
+            border: none; 
+            padding: 13px; 
+            border-radius: 10px; 
+            font-size: 14px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            width: 100%; 
+            transition: 0.2s;
+            letter-spacing: -0.3px;
+        }
+        .btn-main:hover { filter: brightness(1.08); }
+        .btn-main:active { transform: scale(0.985); }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-left">
+            <div class="logo">
+                ⚡ کابینت‌ساز
+                <span>| KitchenGo Style</span>
+            </div>
+            <div class="badge">نسخه رنگی</div>
+        </div>
+        <div class="header-right">
+            <button class="btn-icon" onclick="toggleDim()" id="dimBtn">ابعاد: روشن</button>
+        </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('3d', event)">📦 سه‌بعدی</div>
+        <div class="tab" onclick="switchTab('list', event)">📋 لیست برش</div>
+        <div class="tab" onclick="switchTab('nesting', event)">🗂️ چیدمان ورق</div>
+        <div class="tab" onclick="switchTab('finance', event)">💰 یراق و هزینه</div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content-area">
+        <div id="tab-3d" class="tab-content active">
+            <div id="canvas-container"></div>
+        </div>
+        
+        <div id="tab-list" class="tab-content">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>نام قطعه</th>
+                            <th>طول (mm)</th>
+                            <th>عرض (mm)</th>
+                            <th>تعداد</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cut-list-body"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="tab-nesting" class="tab-content">
+            <canvas id="nesting-canvas"></canvas>
+            <div id="nesting-info">در حال محاسبه...</div>
+        </div>
+        
+        <div id="tab-finance" class="tab-content">
+            <div class="finance-wrapper">
+                <div class="finance-card">
+                    <h3>📊 لیست یراق‌آلات</h3>
+                    <div class="stat-row"><span>تعداد لولا:</span> <span id="stat-hinges">0</span></div>
+                    <div class="stat-row"><span>تعداد ریل کشو:</span> <span id="stat-slides">0</span></div>
+                    <div class="stat-row"><span>تعداد دستگیره:</span> <span id="stat-handles">0</span></div>
+                    <div class="stat-row"><span>متراژ نوار لبه:</span> <span id="stat-edge">0</span></div>
+                    <div class="stat-row"><span>تعداد ورق مصرفی:</span> <span id="stat-sheets">0</span></div>
+                </div>
+                <div class="finance-card">
+                    <h3>💵 قیمت‌گذاری (تومان)</h3>
+                    <div class="price-inputs">
+                        <div class="input-group">
+                            <label>قیمت ورق MDF</label>
+                            <input type="number" id="priceMdf" value="2500000" onchange="updateFinance()">
+                        </div>
+                        <div class="input-group">
+                            <label>قیمت متر PVC</label>
+                            <input type="number" id="pricePvc" value="50000" onchange="updateFinance()">
+                        </div>
+                        <div class="input-group">
+                            <label>قیمت لولا</label>
+                            <input type="number" id="priceHinge" value="15000" onchange="updateFinance()">
+                        </div>
+                        <div class="input-group">
+                            <label>قیمت جفت ریل</label>
+                            <input type="number" id="priceSlide" value="120000" onchange="updateFinance()">
+                        </div>
+                        <div class="input-group">
+                            <label>قیمت دستگیره</label>
+                            <input type="number" id="priceHandle" value="80000" onchange="updateFinance()">
+                        </div>
+                    </div>
+                    <div class="total-cost">
+                        هزینه تمام‌شده:<br>
+                        <span id="total-cost-value">0</span> تومان
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls-panel">
+        <div class="inputs-row">
+            <div class="input-group" style="flex: 1.6;">
+                <label>نوع کابینت</label>
+                <select id="cabinetType" onchange="changeCabinetType()">
+                    <option value="base-double">زمینی ۲ درب</option>
+                    <option value="base-single">زمینی ۱ درب</option>
+                    <option value="wall-double">هوایی ۲ درب</option>
+                    <option value="wall-single">هوایی ۱ درب</option>
+                    <option value="corner-blind">کنج (بایند)</option>
+                </select>
+            </div>
+            <div class="input-group" style="flex: 1.6;">
+                <label>چیدمان</label>
+                <select id="drawerCount" onchange="generateAll()">
+                    <option value="0">درب‌دار (بدون کشو)</option>
+                    <option value="1">۱ کشو + درب</option>
+                    <option value="3" selected>۳ کشو (کامل)</option>
+                </select>
+            </div>
+            <div class="input-group" style="flex: 1;">
+                <label>دستگیره مخفی</label>
+                <label class="switch">
+                    <input type="checkbox" id="hiddenHandle" onchange="generateAll()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="inputs-row">
+            <div class="input-group"><label>عرض (W)</label><input type="number" id="width" value="600" min="100"></div>
+            <div class="input-group"><label>ارتفاع (H)</label><input type="number" id="height" value="720" min="100"></div>
+            <div class="input-group"><label>عمق (D)</label><input type="number" id="depth" value="550" min="100"></div>
+            <div class="input-group"><label>ضخامت (T)</label><input type="number" id="thickness" value="16" step="1" min="10"></div>
+            <div class="input-group"><label>رنگ بدنه</label><input type="color" id="bodyColor" value="#deb887" onchange="generateAll()"></div>
+            <div class="input-group"><label>رنگ درب</label><input type="color" id="doorColor" value="#f5f5dc" onchange="generateAll()"></div>
+        </div>
+        
+        <button class="btn-main" onclick="generateAll()">🔄 محاسبه و بروزرسانی</button>
+    </div>
+
+    <script>
+        // ===== تمام منطق اصلی دقیقاً مثل کد شما حفظ شده =====
+        let globalCutList = [];
+        let globalHardware = {};
+        let globalSheetsCount = 0;
+        let showDims = true;
+        let scene, camera, renderer, labelRenderer, controls, cabinetGroup, dimensionGroup;
+
+        function changeCabinetType() {
+            const type = document.getElementById('cabinetType').value;
+            if (type === 'corner-blind') {
+                document.getElementById('width').value = 900;
+                document.getElementById('depth').value = 600;
+                document.getElementById('height').value = 720;
+                document.getElementById('drawerCount').value = "0";
+            } else if (type.includes('wall')) {
+                document.getElementById('depth').value = 300; 
+                document.getElementById('height').value = 900;
+            } else {
+                document.getElementById('depth').value = 550; 
+                document.getElementById('height').value = 720;
+            }
+            generateAll();
+        }
+
+        function calculateCutList(w, h, d, t, type, drawerCount, isHiddenHandle, doorAdjust) {
+            let list = [];
+            let isWall = type.includes('wall');
+            let isSingle = type.includes('single');
+            let isCorner = type === 'corner-blind';
+            
+            if (isWall || isCorner) {
+                let innerW = w - (t * 2);
+                list.push({ name: "بدنه (چپ/راست)", L: h, W: d, Q: 2, type: 'wood' });
+                list.push({ name: "پایین و بالا", L: innerW, W: d, Q: 2, type: 'wood' });
+                list.push({ name: "طبقه", L: innerW, W: d, Q: 2, type: 'wood' });
+                list.push({ name: "تیرم پشت", L: 80, W: innerW, Q: 2, type: 'wood' });
+                list.push({ name: "فیبر پشت (3میل)", L: h - 32, W: w - 32, Q: 1, type: 'fiber' });
+
+                if (drawerCount === 0) {
+                    let doorH = h - 2;
+                    if (isHiddenHandle) doorH = h + 20;
+                    doorH += doorAdjust;
+
+                    if (isCorner) {
+                        let doorW = 400;
+                        let blindW = w - doorW - t;
+                        list.push({ name: "درب کنج", L: doorH, W: doorW, Q: 1, type: 'wood' });
+                        list.push({ name: "پنل بایند کنج", L: doorH, W: blindW, Q: 1, type: 'wood' });
+                    } else {
+                        let doorW = isSingle ? (w - 2) : ((w / 2) - 2);
+                        list.push({ name: "درب", L: doorH, W: doorW, Q: isSingle ? 1 : 2, type: 'wood' });
+                    }
+                }
+            } else {
+                let innerW = w - (t * 2);
+                list.push({ name: "بدنه (چپ/راست)", L: h - t, W: d, Q: 2, type: 'wood' }); 
+                list.push({ name: "کف کابینت", L: w, W: d, Q: 1, type: 'wood' }); 
+                list.push({ name: "طبقه", L: innerW, W: d - 20, Q: 1, type: 'wood' }); 
+                list.push({ name: "تیرم بالا", L: 80, W: innerW, Q: 2, type: 'wood' }); 
+                list.push({ name: "پاخور", L: innerW, W: 100, Q: 1, type: 'wood' });
+                list.push({ name: "فیبر پشت (3میل)", L: h - 8, W: w - 16, Q: 1, type: 'fiber' });
+                list.push({ name: "صفحه رویی", L: w + 20, W: d + 50, Q: 1, type: 'countertop' });
+
+                if (drawerCount === 0) {
+                    let doorW = isSingle ? (w - 2) : ((w / 2) - 2);
+                    let doorH = h - 5; 
+                    if (isHiddenHandle) doorH = h - 35; 
+                    doorH += doorAdjust; 
+                    list.push({ name: "درب", L: doorH, W: doorW, Q: isSingle ? 1 : 2, type: 'wood' });
+                } else {
+                    let clearance = 13; 
+                    let boxWidth = innerW - (clearance * 2);
+                    let boxDepth = d - 20; 
+                    let gap = 3; 
+                    let frontH = (h - ((drawerCount + 1) * gap)) / drawerCount;
+                    for (let i = 1; i <= drawerCount; i++) {
+                        list.push({ name: `پنل کشو ${i}`, L: frontH, W: w, Q: 1, type: 'wood' });
+                    }
+                    let boxH = frontH - 20; 
+                    list.push({ name: "بدنه کشو طولی", L: boxDepth, W: boxH, Q: 2 * drawerCount, type: 'wood' });
+                    list.push({ name: "بدنه کشو عرضی", L: boxWidth - (t*2), W: boxH, Q: 2 * drawerCount, type: 'wood' });
+                    list.push({ name: "کف کشو", L: boxWidth - 10, W: boxDepth - 10, Q: drawerCount, type: 'fiber' });
+                }
+            }
+            return list;
+        }
+
+        function calculateHardware(drawerCount, type) {
+            let isSingle = type.includes('single');
+            let hinges = (drawerCount === 0) ? (isSingle ? 2 : 4) : 0;
+            let handles = (drawerCount === 0) ? (isSingle ? 1 : 2) : drawerCount;
+            let edgeMeters = 0;
+            globalCutList.forEach(item => {
+                if(item.type === 'wood') {
+                    if(item.name.includes("درب") || item.name.includes("پنل کشو")) {
+                        edgeMeters += ((item.L + item.W) * 2 / 1000) * item.Q; 
+                    } else {
+                        edgeMeters += (item.L / 1000) * item.Q; 
+                    }
+                }
+            });
+            return { hinges, slides: drawerCount, handles, edgeMeters: edgeMeters.toFixed(1) };
+        }
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 10000);
+            camera.position.set(1500, 1200, 1800);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+            
+            labelRenderer = new THREE.CSS2DRenderer();
+            labelRenderer.setSize(container.clientWidth, container.clientHeight);
+            labelRenderer.domElement.style.position = 'absolute'; 
+            labelRenderer.domElement.style.top = '0px'; 
+            labelRenderer.domElement.style.pointerEvents = 'none';
+            container.appendChild(labelRenderer.domElement);
+            
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); 
+            dirLight.position.set(1000, 2000, 1000); 
+            scene.add(dirLight);
+            
+            cabinetGroup = new THREE.Group(); 
+            scene.add(cabinetGroup);
+            dimensionGroup = new THREE.Group(); 
+            scene.add(dimensionGroup);
+            
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; 
+            controls.maxPolarAngle = Math.PI / 2;
+            
+            animate();
+        }
+
+        function animate() { 
+            requestAnimationFrame(animate); 
+            controls.update(); 
+            renderer.render(scene, camera); 
+            labelRenderer.render(scene, camera); 
+        }
+
+        function createDimLine(p1, p2, text) {
+            const mat = new THREE.LineBasicMaterial({ color: 0x00c2ff });
+            const geo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(p1.x, p1.y, p1.z), 
+                new THREE.Vector3(p2.x, p2.y, p2.z)
+            ]);
+            dimensionGroup.add(new THREE.Line(geo, mat));
+            const div = document.createElement('div'); 
+            div.className = 'dimension-label'; 
+            div.textContent = text;
+            const label = new THREE.CSS2DObject(div); 
+            label.position.set((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2);
+            dimensionGroup.add(label);
+        }
+
+        function buildDimensions(w, h, d) {
+            while(dimensionGroup.children.length > 0){ 
+                dimensionGroup.remove(dimensionGroup.children[0]); 
+            }
+            if (!showDims) return;
+            const offset = 200; 
+            createDimLine({x: -w/2, y: -h/2 - offset, z: d/2}, {x: w/2, y: -h/2 - offset, z: d/2}, `${w} mm`);
+            createDimLine({x: -w/2 - offset, y: -h/2, z: d/2}, {x: -w/2 - offset, y: h/2, z: d/2}, `${h} mm`);
+            createDimLine({x: w/2 + offset, y: -h/2, z: -d/2}, {x: w/2 + offset, y: -h/2, z: d/2}, `${d} mm`);
+        }
+
+        function toggleDim() { 
+            showDims = !showDims; 
+            document.getElementById('dimBtn').textContent = showDims ? "ابعاد: روشن" : "ابعاد: خاموش"; 
+            generateAll(); 
+        }
+
+        function build3DCabinet(w, h, d, t, type, drawerCount, isHiddenHandle, doorAdjust, bodyColorHex, doorColorHex) {
+            while(cabinetGroup.children.length > 0){ 
+                cabinetGroup.remove(cabinetGroup.children[0]); 
+            }
+            const isWall = type.includes('wall');
+            const isSingle = type.includes('single');
+            const isCorner = type === 'corner-blind';
+
+            const matBody = new THREE.MeshStandardMaterial({ color: bodyColorHex, roughness: 0.9 }); 
+            const matFront = new THREE.MeshStandardMaterial({ color: doorColorHex, roughness: 0.5 }); 
+            const matCounter = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.2 }); 
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0x000000 });
+
+            function createPanel(pw, ph, pd, px, py, pz, material) {
+                const geo = new THREE.BoxGeometry(pw, ph, pd);
+                const mesh = new THREE.Mesh(geo, material);
+                mesh.position.set(px, py, pz); 
+                mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
+                cabinetGroup.add(mesh); 
+                return mesh;
+            }
+
+            const halfW = w / 2; 
+            const halfD = d / 2;
+            const startY = -h/2; 
+            const endY = h/2;
+
+            if (isWall || isCorner) {
+                createPanel(t, h, d, -halfW + (t/2), 0, 0, matBody);
+                createPanel(t, h, d, halfW - (t/2), 0, 0, matBody);
+                const innerW = w - (t * 2);
+                createPanel(innerW, t, d, 0, startY + (t/2), 0, matBody);
+                createPanel(innerW, t, d, 0, endY - (t/2), 0, matBody);
+                createPanel(innerW, 80, 20, 0, endY - (t + 40), -halfD + 10, matBody);
+            } else {
+                createPanel(w, t, d, 0, startY + (t/2), 0, matBody);
+                createPanel(t, h - t, d, -halfW + (t/2), startY + t + (h-t)/2, 0, matBody);
+                createPanel(t, h - t, d, halfW - (t/2), startY + t + (h-t)/2, 0, matBody);
+                const innerW = w - (t * 2);
+                createPanel(innerW, 80, d - 20, 0, endY - 40, 0, matBody);
+                createPanel(innerW, 100, 20, 0, startY - 50, -halfD + 10, matBody);
+                createPanel(w + 20, 30, d + 50, 0, endY + 15, 25, matCounter);
+            }
+
+            if (drawerCount === 0) {
+                let doorH = isWall || isCorner ? (h - 2) : (h - 5);
+                if (isHiddenHandle) doorH = isWall || isCorner ? (h + 20) : (h - 35);
+                doorH += doorAdjust;
+                
+                let doorY = isWall || isCorner ? 0 : (startY + (t/2) + doorH/2);
+
+                if (isCorner) {
+                    let doorW = 400;
+                    let blindW = w - doorW - t;
+                    createPanel(doorW, doorH, t, -halfW + doorW/2 + t, doorY, halfD + (t/2), matFront);
+                    createPanel(blindW, doorH, t, halfW - blindW/2, doorY, halfD + (t/2), matFront);
+                } else if (isSingle) {
+                    createPanel(w - 2, doorH, t, 0, doorY, halfD + (t/2), matFront);
+                } else {
+                    let doorW = (w / 2) - 2;
+                    createPanel(doorW, doorH, t, -doorW/2 - 1, doorY, halfD + (t/2), matFront); 
+                    createPanel(doorW, doorH, t, doorW/2 + 1, doorY, halfD + (t/2), matFront);
+                }
+            } else {
+                const gap = 3; 
+                const frontH = (h - ((drawerCount + 1) * gap)) / drawerCount;
+                const startFrontY = endY - gap - frontH/2;
+                for(let i=0; i<drawerCount; i++) {
+                    createPanel(w, frontH, t, 0, startFrontY - i * (frontH + gap), halfD + (t/2) + 10, matFront); 
+                }
+            }
+        }
+
+        function calculateNesting(list) {
+            const sheetW = 1830, sheetH = 3660; 
+            let sheets = []; 
+            let pieces = [];
+            list.forEach(item => { 
+                if (item.type === 'wood') { 
+                    for(let i=0; i<item.Q; i++) 
+                        pieces.push({ name: item.name, w: item.W, h: item.L, area: item.W * item.L }); 
+                } 
+            });
+            pieces.sort((a, b) => b.area - a.area);
+            let currentSheet = { pieces: [], usedArea: 0, currentX: 0, currentY: 0, rowHeight: 0 };
+            
+            pieces.forEach(p => {
+                let pieceW = p.w; 
+                let pieceH = p.h;
+                if (pieceW > sheetW && pieceH <= sheetW) { 
+                    pieceW = p.h; 
+                    pieceH = p.w; 
+                } 
+                if (currentSheet.currentX + pieceW <= sheetW && currentSheet.currentY + pieceH <= sheetH) {
+                    currentSheet.pieces.push({ ...p, x: currentSheet.currentX, y: currentSheet.currentY, drawW: pieceW, drawH: pieceH });
+                    currentSheet.currentX += pieceW; 
+                    currentSheet.rowHeight = Math.max(currentSheet.rowHeight, pieceH); 
+                    currentSheet.usedArea += (pieceW * pieceH);
+                } else if (currentSheet.currentY + currentSheet.rowHeight + pieceH <= sheetH && pieceW <= sheetW) {
+                    currentSheet.currentX = 0; 
+                    currentSheet.currentY += currentSheet.rowHeight; 
+                    currentSheet.rowHeight = 0;
+                    currentSheet.pieces.push({ ...p, x: currentSheet.currentX, y: currentSheet.currentY, drawW: pieceW, drawH: pieceH });
+                    currentSheet.currentX += pieceW; 
+                    currentSheet.rowHeight = Math.max(currentSheet.rowHeight, pieceH); 
+                    currentSheet.usedArea += (pieceW * pieceH);
+                } else {
+                    sheets.push(currentSheet); 
+                    currentSheet = { pieces: [], usedArea: 0, currentX: 0, currentY: 0, rowHeight: 0 };
+                    let newW = p.w; 
+                    let newH = p.h; 
+                    if (newW > sheetW && newH <= sheetW) { 
+                        newW = p.h; 
+                        newH = p.w; 
+                    }
+                    currentSheet.pieces.push({ ...p, x: 0, y: 0, drawW: newW, drawH: newH });
+                    currentSheet.currentX = newW; 
+                    currentSheet.rowHeight = newH; 
+                    currentSheet.usedArea += (newW * newH);
+                }
+            });
+            if (currentSheet.pieces.length > 0) sheets.push(currentSheet);
+            globalSheetsCount = sheets.length; 
+            return sheets;
+        }
+
+        function drawNesting(sheets) {
+            const canvas = document.getElementById('nesting-canvas'); 
+            const ctx = canvas.getContext('2d'); 
+            const container = document.getElementById('tab-nesting');
+            canvas.width = container.clientWidth; 
+            canvas.height = container.clientHeight; 
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const sheetW = 1830, sheetH = 3660; 
+            const padding = 20; 
+            const totalWidth = canvas.width;
+            const maxCols = Math.max(1, Math.floor(totalWidth / (sheetW / 10 + padding))); 
+            const scale = Math.min((totalWidth / maxCols - padding) / (sheetW/10), (canvas.height - padding*2) / (sheetH/10));
+            
+            sheets.forEach((sheet, index) => {
+                const col = index % maxCols; 
+                const row = Math.floor(index / maxCols);
+                const offsetX = totalWidth - (col * ((sheetW/10) * scale + padding)) - ((sheetW/10) * scale) - padding; 
+                const offsetY = row * ((sheetH/10) * scale + padding) + padding;
+                
+                ctx.fillStyle = "#161b22"; 
+                ctx.strokeStyle = "#30363d"; 
+                ctx.lineWidth = 2; 
+                ctx.fillRect(offsetX, offsetY, (sheetW/10) * scale, (sheetH/10) * scale); 
+                ctx.strokeRect(offsetX, offsetY, (sheetW/10) * scale, (sheetH/10) * scale);
+                
+                sheet.pieces.forEach(p => {
+                    ctx.fillStyle = "rgba(0, 194, 255, 0.18)"; 
+                    ctx.strokeStyle = "#00c2ff"; 
+                    ctx.lineWidth = 1;
+                    const px = offsetX + ((sheetW/10) - (p.x/10) - (p.drawW/10)) * scale; 
+                    const py = offsetY + (p.y/10) * scale;
+                    ctx.fillRect(px, py, (p.drawW/10) * scale, (p.drawH/10) * scale); 
+                    ctx.strokeRect(px, py, (p.drawW/10) * scale, (p.drawH/10) * scale);
+                });
+            });
+            let totalSheetArea = sheets.length * (sheetW * sheetH); 
+            let totalUsedArea = sheets.reduce((sum, s) => sum + s.usedArea, 0);
+            let wastePercent = totalSheetArea > 0 ? (1 - (totalUsedArea / totalSheetArea)) * 100 : 0;
+            document.getElementById('nesting-info').innerHTML = `
+                <div style="color:#00c2ff; font-weight:700; margin-bottom:6px;">آمار ورق</div>
+                تعداد: <b>${sheets.length}</b> عدد<br>
+                پرتی: <b style="color:${wastePercent > 30 ? '#f85149' : '#3fb950'}">${wastePercent.toFixed(1)}%</b>`;
+        }
+
+        function updateUI() {
+            const tbody = document.getElementById("cut-list-body"); 
+            tbody.innerHTML = "";
+            globalCutList.forEach(item => { 
+                tbody.innerHTML += `<tr>
+                    <td style="text-align:right;">${item.name}</td>
+                    <td>${item.L.toFixed(0)}</td>
+                    <td>${item.W.toFixed(0)}</td>
+                    <td>${item.Q}</td>
+                </tr>`; 
+            });
+            document.getElementById('stat-hinges').textContent = globalHardware.hinges;
+            document.getElementById('stat-slides').textContent = globalHardware.slides;
+            document.getElementById('stat-handles').textContent = globalHardware.handles;
+            document.getElementById('stat-edge').textContent = globalHardware.edgeMeters + " متر";
+            document.getElementById('stat-sheets').textContent = globalSheetsCount;
+            updateFinance();
+        }
+
+        function updateFinance() {
+            const pMdf = parseFloat(document.getElementById('priceMdf').value) || 0; 
+            const pPvc = parseFloat(document.getElementById('pricePvc').value) || 0;
+            const pHinge = parseFloat(document.getElementById('priceHinge').value) || 0; 
+            const pSlide = parseFloat(document.getElementById('priceSlide').value) || 0; 
+            const pHandle = parseFloat(document.getElementById('priceHandle').value) || 0;
+            let total = (globalSheetsCount * pMdf) + 
+                        (parseFloat(globalHardware.edgeMeters) * pPvc) + 
+                        (globalHardware.hinges * pHinge) + 
+                        (globalHardware.slides * pSlide) + 
+                        (globalHardware.handles * pHandle);
+            document.getElementById('total-cost-value').textContent = total.toLocaleString('fa-IR');
+        }
+
+        function generateAll() {
+            const type = document.getElementById('cabinetType').value;
+            const w = parseFloat(document.getElementById('width').value); 
+            const h = parseFloat(document.getElementById('height').value);
+            const d = parseFloat(document.getElementById('depth').value); 
+            const t = parseFloat(document.getElementById('thickness').value);
+            const drawerCount = parseInt(document.getElementById('drawerCount').value);
+            const isHiddenHandle = document.getElementById('hiddenHandle').checked;
+            const doorAdjust = parseFloat(document.getElementById('doorAdjust')?.value) || 0;
+
+            const bodyColorStr = document.getElementById('bodyColor').value;
+            const doorColorStr = document.getElementById('doorColor').value;
+            const bodyColor = parseInt(bodyColorStr.replace('#', '0x'));
+            const doorColor = parseInt(doorColorStr.replace('#', '0x'));
+
+            globalCutList = calculateCutList(w, h, d, t, type, drawerCount, isHiddenHandle, doorAdjust);
+            globalHardware = calculateHardware(drawerCount, type);
+            
+            build3DCabinet(w, h, d, t, type, drawerCount, isHiddenHandle, doorAdjust, bodyColor, doorColor);
+            buildDimensions(w, h, d);
+            
+            const sheets = calculateNesting(globalCutList);
+            drawNesting(sheets);
+            updateUI(); 
+        }
+
+        function switchTab(tabId, event) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            if(event) event.target.classList.add('active');
+            if (tabId === 'nesting' || tabId === 'finance') generateAll(); 
+        }
+
+        window.onload = () => { 
+            init3D(); 
+            generateAll(); 
+        };
+        
+        window.onresize = () => {
+            const container = document.getElementById('canvas-container');
+            if (camera && renderer && labelRenderer) { 
+                camera.aspect = container.clientWidth / container.clientHeight; 
+                camera.updateProjectionMatrix(); 
+                renderer.setSize(container.clientWidth, container.clientHeight); 
+                labelRenderer.setSize(container.clientWidth, container.clientHeight); 
+            }
+            generateAll();
+        };
+    </script>
+</body>
+</html>
