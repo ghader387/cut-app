@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CutMaster Pro | نسخه چندکاره</title>
+    
+    <!-- لینک به فایل استایل جداگانه -->
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+</head>
+<body>
+
+    <div class="header">
+        <h1>⚡ CutMaster Pro (نسخه ۳)</h1>
+        <button onclick="toggleDim()" id="dimBtn" style="background:#444; color:#fff; border:none; padding:6px 10px; border-radius:5px; font-size:11px;">ابعاد: روشن</button>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('3d', event)">📦 سه‌بعدی</div>
+        <div class="tab" onclick="switchTab('list', event)">📋 لیست برش</div>
+        <div class="tab" onclick="switchTab('nesting', event)">🗂️ چیدمان ورق</div>
+        <div class="tab" onclick="switchTab('finance', event)">💰 یراق و هزینه</div>
+    </div>
+
+    <div class="content-area">
+        <div id="tab-3d" class="tab-content active"><div id="canvas-container"></div></div>
+        <div id="tab-list" class="tab-content">
+            <div class="table-container">
+                <table><thead><tr><th>نام قطعه</th><th>طول</th><th>عرض</th><th>تعداد</th></tr></thead><tbody id="cut-list-body"></tbody></table>
+            </div>
+        </div>
+        <div id="tab-nesting" class="tab-content">
+            <canvas id="nesting-canvas"></canvas>
+            <div id="nesting-info" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; font-size: 12px; border: 1px solid #444; z-index: 20;">در حال محاسبه...</div>
+        </div>
+        <div id="tab-finance" class="tab-content">
+            <div style="padding: 15px;">
+                <div class="finance-card">
+                    <h3>📊 لیست یراق‌آلات</h3>
+                    <div class="stat-row"><span>تعداد لولا:</span> <span id="stat-hinges">0</span></div>
+                    <div class="stat-row"><span>تعداد ریل کشو:</span> <span id="stat-slides">0</span></div>
+                    <div class="stat-row"><span>تعداد دستگیره:</span> <span id="stat-handles">0</span></div>
+                    <div class="stat-row"><span>متراژ نوار لبه:</span> <span id="stat-edge">0</span></div>
+                    <div class="stat-row"><span>تعداد ورق مصرفی:</span> <span id="stat-sheets">0</span></div>
+                </div>
+                <div class="finance-card">
+                    <h3>💵 قیمت‌گذاری (تومان)</h3>
+                    <div class="price-inputs">
+                        <div class="input-group"><label>قیمت هر ورق MDF</label><input type="number" id="priceMdf" value="2500000" onchange="updateFinance()"></div>
+                        <div class="input-group"><label>قیمت هر متر PVC</label><input type="number" id="pricePvc" value="50000" onchange="updateFinance()"></div>
+                        <div class="input-group"><label>قیمت هر لولا</label><input type="number" id="priceHinge" value="15000" onchange="updateFinance()"></div>
+                        <div class="input-group"><label>قیمت هر جفت ریل</label><input type="number" id="priceSlide" value="120000" onchange="updateFinance()"></div>
+                        <div class="input-group"><label>قیمت هر دستگیره</label><input type="number" id="priceHandle" value="80000" onchange="updateFinance()"></div>
+                    </div>
+                    <div class="total-cost">هزینه تمام‌شده:<br><span id="total-cost-value">0</span> تومان</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-panel">
+        <!-- منوی جدید انتخاب نوع کابینت -->
+        <div class="inputs-row">
+            <div class="input-group" style="flex: 1;">
+                <label>نوع کابینت</label>
+                <select id="cabinetType" onchange="generateAll()">
+                    <option value="base-double">زمینی ۲ درب</option>
+                    <option value="base-single">زمینی ۱ درب</option>
+                    <option value="wall-double">هوایی ۲ درب</option>
+                    <option value="wall-single">هوایی ۱ درب</option>
+                    <option value="tall">کمد قدی</option>
+                </select>
+            </div>
+            <div class="input-group" style="flex: 1;">
+                <label>چیدمان</label>
+                <select id="drawerCount">
+                    <option value="0">بدون کشو</option>
+                    <option value="3" selected>۳ کشو</option>
+                </select>
+            </div>
+        </div>
+        <div class="inputs-row">
+            <div class="input-group"><label>عرض (W)</label><input type="number" id="width" value="80" min="20"></div>
+            <div class="input-group"><label>ارتفاع (H)</label><input type="number" id="height" value="85" min="20"></div>
+            <div class="input-group"><label>عمق (D)</label><input type="number" id="depth" value="55" min="20"></div>
+            <div class="input-group"><label>ضخامت (T)</label><input type="number" id="thickness" value="1.6" step="0.1" min="1"></div>
+        </div>
+        <button class="btn-main" onclick="generateAll()">🔄 محاسبه و بروزرسانی</button>
+    </div>
+
+    <!-- لینک به فایل جاوااسکریپت جداگانه -->
+    <script src="app.js"></script>
+</body>
+</html>
