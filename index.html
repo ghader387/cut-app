@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>کات مستر | نسخه کارگاهی</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; font-family: Tahoma, sans-serif; margin: 0; padding: 0; }
+        body { height: 100vh; background-color: #eef2f5; overflow: hidden; display: flex; flex-direction: column; }
+        
+        .header { background: #2c3e50; color: white; padding: 12px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 10; display: flex; justify-content: space-between; align-items: center;}
+        .header h1 { font-size: 16px; font-weight: normal; }
+        .toggle-btn { background: #34495e; border: 1px solid #7f8c8d; color: #ecf0f1; padding: 6px 10px; border-radius: 5px; font-size: 12px; cursor: pointer; }
+        .toggle-btn.active { background: #27ae60; border-color: #2ecc71; }
+
+        .viewport { flex-grow: 1; position: relative; width: 100%; background: linear-gradient(to bottom, #d7e1ec, #f0f4f8); overflow: hidden;}
+        #canvas-container { width: 100%; height: 100%; display: block; position: absolute; top:0; left:0; }
+
+        .dimension-label {
+            color: #e74c3c; font-weight: bold; font-size: 13px; background: rgba(255,255,255,0.9);
+            padding: 2px 6px; border-radius: 4px; border: 1px solid #e74c3c; pointer-events: none;
+            transform: translate(-50%, -50%); box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .controls-panel {
+            background: white; padding: 15px; border-top-left-radius: 20px; border-top-right-radius: 20px;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.1); z-index: 10; display: flex; flex-direction: column; gap: 10px;
+        }
+        .inputs-row { display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
+        .input-group { flex: 1; min-width: 65px; display: flex; flex-direction: column; align-items: center; }
+        .input-group label { font-size: 11px; color: #7f8c8d; margin-bottom: 5px; }
+        .input-group input, .input-group select { 
+            width: 100%; padding: 8px; border: 1px solid #bdc3c7; border-radius: 8px; 
+            text-align: center; font-size: 14px; font-weight: bold; color: #2c3e50; background: white;
+        }
+        .btn-update {
+            background: #3498db; color: white; border: none; padding: 12px;
+            border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%;
+        }
+        .btn-update:active { background: #2980b9; transform: scale(0.98); }
+
+        .fab-btn {
+            position: absolute; bottom: 160px; left: 20px;
+            background: #e67e22; color: white; border: none; padding: 12px 20px;
+            border-radius: 30px; font-size: 14px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            cursor: pointer; z-index: 15; display: flex; align-items: center; gap: 8px;
+        }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 100;
+        }
+        .modal-content {
+            background: white; width: 92%; max-height: 80vh; border-radius: 15px; padding: 20px;
+            display: flex; flex-direction: column; overflow-y: auto;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .modal-header h2 { font-size: 16px; color: #2c3e50; }
+        .close-btn { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; }
+        th, td { border: 1px solid #ddd; padding: 8px; }
+        th { background-color: #34495e; color: white; position: sticky; top: 0;}
+        
+        .btn-export {
+            margin-top: 15px; background: #27ae60; color: white; border: none; padding: 12px;
+            border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>📐 کات مستر | کارگاهی</h1>
+        <button class="toggle-btn active" id="dimToggle" onclick="toggleDimensions()">ابعاد: روشن</button>
+    </div>
+
+    <div class="viewport">
+        <div id="canvas-container"></div>
+        <button class="fab-btn" onclick="openModal()">📋 لیست برش</button>
+    </div>
+
+    <div class="controls-panel">
+        <div class="inputs-row">
+            <div class="input-group">
+                <label>عرض (W)</label>
+                <input type="number" id="width" value="60" min="20">
+            </div>
+            <div class="input-group">
+                <label>ارتفاع (H)</label>
+                <input type="number" id="height" value="85" min="20">
+            </div>
+            <div class="input-group">
+                <label>عمق (D)</label>
+                <input type="number" id="depth" value="55" min="20">
+            </div>
+        </div>
+        <div class="inputs-row">
+            <div class="input-group">
+                <label>ضخامت (T)</label>
+                <input type="number" id="thickness" value="1.6" step="0.1" min="1">
+            </div>
+            <div class="input-group" style="flex: 2;">
+                <label>نوع چیدمان</label>
+                <select id="drawerCount">
+                    <option value="0">درب‌دار (بدون کشو)</option>
+                    <option value="1">۱ کشو + درب</option>
+                    <option value="2">۲ کشو + درب</option>
+                    <option value="3" selected>۳ کشو (کامل)</option>
+                    <option value="4">۴ کشو (کامل)</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn-update" onclick="generateCabinet()">🔄 بروزرسانی مدل و محاسبات</button>
+    </div>
+
+    <div class="modal-overlay" id="cutListModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 لیست برش قطعات</h2>
+                <button class="close-btn" onclick="closeModal()">✖ بستن</button>
+            </div>
+            <table id="cutListTable">
+                <thead>
+                    <tr>
+                        <th>نام قطعه</th>
+                        <th>طول</th>
+                        <th>عرض</th>
+                        <th>تعداد</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <button class="btn-export" onclick="exportToCSV()">💾 دانلود فایل اکسل (CSV)</button>
+        </div>
+    </div>
+
+    <script>
+        let globalCutList = []; 
+        let showDimensions = true;
+
+        // ==========================================
+        // ۱. محاسبه لیست برش (با در نظر گرفتن کشوها)
+        // ==========================================
+        function calculateCutList(w, h, d, t, drawerCount) {
+            let list = [];
+            let toeKickH = 10; 
+            let bodyH = h - toeKickH; 
+
+            // بدنه اصلی
+            list.push({ name: "بدنه (چپ/راست)", length: bodyH, width: d, qty: 2 });
+            let innerWidth = w - (t * 2);
+            list.push({ name: "کف و سقف", length: innerWidth, width: d, qty: 2 });
+            let backH = bodyH - (t * 2) - 0.2;
+            list.push({ name: "فیبر پشت", length: backH, width: w - (t * 2), qty: 1 });
+            list.push({ name: "پاخور (Toe Kick)", length: innerWidth, width: 10, qty: 1 });
+            list.push({ name: "صفحه رویی", length: w + 2, width: d + 2, qty: 1 });
+
+            if (drawerCount === 0) {
+                // حالت درب‌دار
+                list.push({ name: "طبقه", length: innerWidth - 0.2, width: d - 2, qty: 2 });
+                let doorW = (w / 2) - 0.15;
+                let doorH = bodyH - 0.3;
+                list.push({ name: "درب", length: doorH, width: doorW, qty: 2 });
+            } else {
+                // حالت کشویی
+                // فضای آزاد برای ریل (معمولا 1.3 سانت از هر طرف)
+                let clearance = 1.3;
+                let boxWidth = innerWidth - (clearance * 2);
+                let boxDepth = d - 2; // برای اینکه به درب/پنل جلویی نخورد
+                
+                // محاسبه ارتفاع پنل‌های جلو
+                let gap = 0.3; // درز بین کشوها
+                let frontH = (bodyH - ((drawerCount + 1) * gap)) / drawerCount;
+
+                for (let i = 1; i <= drawerCount; i++) {
+                    list.push({ name: `پنل کشو ${i}`, length: frontH, width: w, qty: 1 });
+                }
+
+                // بدنه کشوها (ارتفاع بدنه کشو معمولا 2 سانت کوتاهتر از پنل جلوست)
+                let boxH = frontH - 2; 
+                list.push({ name: "بدنه کشو (طول)", length: boxDepth, width: boxH, qty: 2 * drawerCount });
+                list.push({ name: "بدنه کشو (عرض)", length: boxWidth - (t*2), width: boxH, qty: 2 * drawerCount });
+                // کف کشو (فیبر 3 میل)
+                list.push({ name: "کف کشو (فیبر)", length: boxWidth - 1, width: boxDepth - 1, qty: drawerCount });
+            }
+            return list;
+        }
+
+        function updateTable(list) {
+            globalCutList = list;
+            const tbody = document.querySelector("#cutListTable tbody");
+            tbody.innerHTML = "";
+            list.forEach(item => {
+                let row = `<tr>
+                    <td style="text-align:right; padding-right:10px;">${item.name}</td>
+                    <td>${item.length.toFixed(1)}</td>
+                    <td>${item.width.toFixed(1)}</td>
+                    <td>${item.qty}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // ==========================================
+        // ۲. محیط سه بعدی
+        // ==========================================
+        let scene, camera, renderer, labelRenderer, cabinetGroup, dimensionGroup;
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(120, 100, 150);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            labelRenderer = new THREE.CSS2DRenderer();
+            labelRenderer.setSize(container.clientWidth, container.clientHeight);
+            labelRenderer.domElement.style.position = 'absolute';
+            labelRenderer.domElement.style.top = '0px';
+            labelRenderer.domElement.style.pointerEvents = 'none';
+            container.appendChild(labelRenderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(100, 150, 100);
+            scene.add(dirLight);
+
+            cabinetGroup = new THREE.Group();
+            scene.add(cabinetGroup);
+
+            dimensionGroup = new THREE.Group();
+            scene.add(dimensionGroup);
+
+            // کنترل چرخش
+            let isDragging = false;
+            let prevPos = { x: 0, y: 0 };
+            
+            const startDrag = (x, y) => { isDragging = true; prevPos = { x, y }; };
+            const moveDrag = (x, y) => {
+                if (isDragging && cabinetGroup) {
+                    cabinetGroup.rotation.y += (x - prevPos.x) * 0.01;
+                    cabinetGroup.rotation.x += (y - prevPos.y) * 0.01;
+                    dimensionGroup.rotation.copy(cabinetGroup.rotation);
+                    prevPos = { x, y };
+                }
+            };
+
+            container.addEventListener('mousedown', (e) => startDrag(e.offsetX, e.offsetY));
+            container.addEventListener('mousemove', (e) => moveDrag(e.offsetX, e.offsetY));
+            container.addEventListener('mouseup', () => { isDragging = false; });
+            
+            container.addEventListener('touchstart', (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY));
+            container.addEventListener('touchmove', (e) => moveDrag(e.touches[0].clientX, e.touches[0].clientY));
+            container.addEventListener('touchend', () => { isDragging = false; });
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+
+        // ==========================================
+        // ۳. رسم خطوط اندازه‌گذاری
+        // ==========================================
+        function createDimensionLine(p1, p2, text) {
+            const material = new THREE.LineBasicMaterial({ color: 0xe74c3c });
+            const points = [new THREE.Vector3(p1.x, p1.y, p1.z), new THREE.Vector3(p2.x, p2.y, p2.z)];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(geometry, material);
+            dimensionGroup.add(line);
+
+            const div = document.createElement('div');
+            div.className = 'dimension-label';
+            div.textContent = text;
+            const label = new THREE.CSS2DObject(div);
+            label.position.set((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2);
+            dimensionGroup.add(label);
+        }
+
+        function buildDimensions(w, h, d) {
+            while(dimensionGroup.children.length > 0){ dimensionGroup.remove(dimensionGroup.children[0]); }
+            if (!showDimensions) return;
+
+            const halfW = w / 2; const halfH = h / 2; const halfD = d / 2; const offset = 15;
+            createDimensionLine({x: -halfW, y: -halfH - offset, z: halfD}, {x: halfW, y: -halfH - offset, z: halfD}, `${w} cm`);
+            createDimensionLine({x: -halfW - offset, y: -halfH, z: halfD}, {x: -halfW - offset, y: halfH, z: halfD}, `${h} cm`);
+            createDimensionLine({x: halfW + offset, y: -halfH, z: -halfD}, {x: halfW + offset, y: -halfH, z: halfD}, `${d} cm`);
+        }
+
+        function toggleDimensions() {
+            showDimensions = !showDimensions;
+            const btn = document.getElementById('dimToggle');
+            btn.classList.toggle('active');
+            btn.textContent = showDimensions ? "ابعاد: روشن" : "ابعاد: خاموش";
+            generateCabinet();
+        }
+
+        // ==========================================
+        // ۴. ساخت مدل سه بعدی کابینت (با کشو)
+        // ==========================================
+        function build3DCabinet(w, h, d, t, drawerCount) {
+            while(cabinetGroup.children.length > 0){ cabinetGroup.remove(cabinetGroup.children[0]); }
+
+            const matBody = new THREE.MeshStandardMaterial({ color: 0xdeb887, roughness: 0.8 }); 
+            const matFront = new THREE.MeshStandardMaterial({ color: 0xf5f5dc, roughness: 0.4 }); 
+            const matCounter = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.2 }); 
+            const matHandle = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, metalness: 0.8, roughness: 0.2 }); 
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0x222222 });
+
+            function createPanel(pw, ph, pd, px, py, pz, material) {
+                const geo = new THREE.BoxGeometry(pw, ph, pd);
+                const mesh = new THREE.Mesh(geo, material);
+                mesh.position.set(px, py, pz);
+                mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
+                cabinetGroup.add(mesh);
+                return mesh;
+            }
+
+            const toeKickH = 10;
+            const bodyH = h - toeKickH; 
+            const halfW = w / 2;
+            const halfD = d / 2;
+            const yOffset = -h/2 + toeKickH + (bodyH/2);
+            const startY = yOffset - (bodyH/2);
+            const endY = yOffset + (bodyH/2);
+
+            // بدنه‌ها
+            createPanel(t, bodyH, d, -halfW + (t/2), yOffset, 0, matBody);
+            createPanel(t, bodyH, d, halfW - (t/2), yOffset, 0, matBody);
+            
+            const innerW = w - (t * 2);
+            createPanel(innerW, t, d, 0, startY + (t/2), 0, matBody); // کف
+            createPanel(innerW, t, d, 0, endY - (t/2), 0, matBody); // سقف
+            createPanel(innerW, bodyH - (t*2), t, 0, yOffset, -halfD + (t/2), matBody); // پشت
+            createPanel(innerW, toeKickH, 2, 0, -h/2 + (toeKickH/2), -halfD + 2 + (t/2), matBody); // پاخور
+            createPanel(w + 4, 3, d + 2, 0, h/2 + 1.5, 0.5, matCounter); // صفحه رویی
+
+            if (drawerCount === 0) {
+                // حالت درب‌دار
+                const doorW = (w / 2) - 0.15;
+                const doorH = bodyH - 0.3;
+                
+                const leftDoor = createPanel(doorW, doorH, t, -doorW/2, yOffset, halfD + (t/2), matFront);
+                leftDoor.rotation.y = -0.4; 
+                
+                const rightDoor = createPanel(doorW, doorH, t, doorW/2, yOffset, halfD + (t/2), matFront);
+                rightDoor.rotation.y = 0.4;
+            } else {
+                // حالت کشویی
+                const gap = 0.3;
+                const frontH = (bodyH - ((drawerCount + 1) * gap)) / drawerCount;
+                const startFrontY = endY - gap - frontH/2; // شروع از بالا
+
+                for(let i=0; i<drawerCount; i++) {
+                    const currentY = startFrontY - i * (frontH + gap);
+                    
+                    // پنل جلوی کشو (کمی بیرون زده)
+                    const drawerFront = createPanel(w, frontH, t, 0, currentY, halfD + (t/2) + 1, matFront);
+                    
+                    // دستگیره کشو (یک مکعب کوچک روی پنل)
+                    const handle = createPanel(10, 1.5, 2, 0, currentY, halfD + t + 2, matHandle);
+                }
+            }
+        }
+
+        // ==========================================
+        // ۵. توابع اصلی
+        // ==========================================
+        function generateCabinet() {
+            const w = parseFloat(document.getElementById('width').value);
+            const h = parseFloat(document.getElementById('height').value);
+            const d = parseFloat(document.getElementById('depth').value);
+            const t = parseFloat(document.getElementById('thickness').value);
+            const drawerCount = parseInt(document.getElementById('drawerCount').value);
+
+            const parts = calculateCutList(w, h, d, t, drawerCount);
+            updateTable(parts);
+            build3DCabinet(w, h, d, t, drawerCount);
+            buildDimensions(w, h, d);
+        }
+
+        function openModal() { document.getElementById('cutListModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('cutListModal').style.display = 'none'; }
+
+        function exportToCSV() {
+            if (globalCutList.length === 0) return;
+            let csvContent = "\uFEFFنام قطعه,طول (cm),عرض (cm),تعداد\n";
+            globalCutList.forEach(row => {
+                csvContent += `${row.name},${row.length.toFixed(1)},${row.width.toFixed(1)},${row.qty}\n`;
+            });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.setAttribute("href", URL.createObjectURL(blob));
+            link.setAttribute("download", "cut_list_master.csv");
+            link.click();
+        }
+
+        window.onload = () => { init3D(); generateCabinet(); };
+        window.onresize = () => {
+            const container = document.getElementById('canvas-container');
+            if (camera && renderer && labelRenderer) {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+                labelRenderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        };
+    </script>
+</body>
+</html>
