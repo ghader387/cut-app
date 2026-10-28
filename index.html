@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نرم‌افزار اختصاصی کارگاه من - فاز ۱</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: Tahoma, sans-serif; }
+        body { margin: 0; display: flex; height: 100vh; background-color: #f4f7f6; overflow: hidden;}
+        
+        .sidebar {
+            width: 350px; background: white; padding: 20px; 
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1); z-index: 10;
+            display: flex; flex-direction: column; gap: 15px; overflow-y: auto;
+        }
+        h2 { color: #2c3e50; text-align: center; margin-top: 0; font-size: 20px;}
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .input-group label { font-size: 14px; color: #34495e; font-weight: bold; }
+        .input-group input { padding: 10px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 16px; }
+        
+        button {
+            padding: 12px; background: #27ae60; color: white; border: none; 
+            border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover { background: #2ecc71; }
+
+        .output-section { margin-top: 10px; border-top: 2px dashed #ccc; padding-top: 15px;}
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; }
+        th, td { border: 1px solid #ddd; padding: 8px; }
+        th { background-color: #34495e; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+
+        .viewport { flex-grow: 1; position: relative; background-color: #e0e6ed; }
+        #canvas-container { width: 100%; height: 100%; }
+        .info-badge {
+            position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.6);
+            color: white; padding: 10px; border-radius: 5px; font-size: 14px; pointer-events: none;
+        }
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: 50vh; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .viewport { height: 50vh; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>⚙️ تنظیمات کابینت</h2>
+        <div class="input-group">
+            <label>عرض کابینت (سانتی‌متر)</label>
+            <input type="number" id="width" value="60" min="20">
+        </div>
+        <div class="input-group">
+            <label>ارتفاع بدنه (سانتی‌متر)</label>
+            <input type="number" id="height" value="80" min="20">
+        </div>
+        <div class="input-group">
+            <label>عمق کابینت (سانتی‌متر)</label>
+            <input type="number" id="depth" value="50" min="20">
+        </div>
+        <div class="input-group">
+            <label>ضخامت ام‌دی‌اف (سانتی‌متر)</label>
+            <input type="number" id="thickness" value="1.6" step="0.1" min="1">
+        </div>
+
+        <button onclick="generateCabinet()">🔄 محاسبه لیست برش و ساخت</button>
+
+        <div class="output-section">
+            <h3 style="text-align: center; font-size: 16px; color: #c0392b;">📋 لیست برش (Cut List)</h3>
+            <table id="cutListTable">
+                <thead>
+                    <tr>
+                        <th>نام قطعه</th>
+                        <th>طول</th>
+                        <th>عرض</th>
+                        <th>تعداد</th>
+                        <th>نوار</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="viewport">
+        <div class="info-badge">پیش‌نمایش سه بعدی (با کلیک بچرخانید)</div>
+        <div id="canvas-container"></div>
+    </div>
+
+    <script>
+        function calculateCutList(w, h, d, t) {
+            let list = [];
+            list.push({ name: "بدنه (چپ/راست)", length: h, width: d, qty: 2, band: "یک طرف" });
+            let innerWidth = w - (t * 2);
+            list.push({ name: "کف و سقف", length: innerWidth, width: d, qty: 2, band: "یک طرف" });
+            let backH = h - (t * 2) - 0.2;
+            let backW = w - (t * 2);
+            list.push({ name: "فیبر پشت", length: backH, width: backW, qty: 1, band: "بدون نوار" });
+            let shelfW = innerWidth - 0.2;
+            let shelfD = d - 2;
+            list.push({ name: "طبقه", length: shelfW, width: shelfD, qty: 1, band: "یک طرف" });
+            let doorW = (w / 2) - 0.15;
+            let doorH = h - 0.3;
+            list.push({ name: "درب", length: doorH, width: doorW, qty: 2, band: "چهار طرف" });
+            return list;
+        }
+
+        function updateTable(list) {
+            const tbody = document.querySelector("#cutListTable tbody");
+            tbody.innerHTML = "";
+            list.forEach(item => {
+                let row = `<tr>
+                    <td>${item.name}</td>
+                    <td>${item.length.toFixed(1)}</td>
+                    <td>${item.width.toFixed(1)}</td>
+                    <td>${item.qty}</td>
+                    <td>${item.band}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        let scene, camera, renderer, cabinetMesh;
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xe0e6ed);
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(150, 150, 150);
+            camera.lookAt(0, 0, 0);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(100, 100, 50);
+            scene.add(dirLight);
+            const gridHelper = new THREE.GridHelper(200, 20, 0x888888, 0xcccccc);
+            scene.add(gridHelper);
+
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            renderer.domElement.addEventListener('mousedown', (e) => { isDragging = true; });
+            renderer.domElement.addEventListener('mousemove', (e) => {
+                if (isDragging && cabinetMesh) {
+                    let deltaX = e.offsetX - previousMousePosition.x;
+                    let deltaY = e.offsetY - previousMousePosition.y;
+                    cabinetMesh.rotation.y += deltaX * 0.01;
+                    cabinetMesh.rotation.x += deltaY * 0.01;
+                    previousMousePosition = { x: e.offsetX, y: e.offsetY };
+                }
+            });
+            renderer.domElement.addEventListener('mouseup', () => { isDragging = false; });
+            
+            // برای لمس در موبایل
+            renderer.domElement.addEventListener('touchstart', (e) => { isDragging = true; previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY }; });
+            renderer.domElement.addEventListener('touchmove', (e) => {
+                if (isDragging && cabinetMesh) {
+                    let deltaX = e.touches[0].clientX - previousMousePosition.x;
+                    let deltaY = e.touches[0].clientY - previousMousePosition.y;
+                    cabinetMesh.rotation.y += deltaX * 0.01;
+                    cabinetMesh.rotation.x += deltaY * 0.01;
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            });
+            renderer.domElement.addEventListener('touchend', () => { isDragging = false; });
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        function generateCabinet() {
+            const w = parseFloat(document.getElementById('width').value);
+            const h = parseFloat(document.getElementById('height').value);
+            const d = parseFloat(document.getElementById('depth').value);
+            const t = parseFloat(document.getElementById('thickness').value);
+
+            const parts = calculateCutList(w, h, d, t);
+            updateTable(parts);
+
+            if (cabinetMesh) { scene.remove(cabinetMesh); }
+
+            const geometry = new THREE.BoxGeometry(w, h, d);
+            const material = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.7, metalness: 0.1 });
+            cabinetMesh = new THREE.Mesh(geometry, material);
+            
+            const edges = new THREE.EdgesGeometry(geometry);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333 }));
+            cabinetMesh.add(line);
+
+            cabinetMesh.position.set(0, 0, 0); 
+            scene.add(cabinetMesh);
+        }
+
+        window.onload = () => {
+            init3D();
+            generateCabinet();
+        };
+
+        window.onresize = () => {
+            const container = document.getElementById('canvas-container');
+            if (camera && renderer) {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        };
+    </script>
+</body>
+</html>
