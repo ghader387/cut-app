@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>کات مستر | نرم‌افزار کارگاه</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: Tahoma, sans-serif; margin: 0; padding: 0; }
+        body { height: 100vh; background-color: #eef2f5; overflow: hidden; display: flex; flex-direction: column; }
+        
+        /* هدر بالای صفحه */
+        .header { background: #2c3e50; color: white; padding: 15px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 10; }
+        .header h1 { font-size: 18px; font-weight: normal; }
+
+        /* محیط سه بعدی */
+        .viewport { flex-grow: 1; position: relative; width: 100%; background: linear-gradient(to bottom, #d7e1ec, #f0f4f8); }
+        #canvas-container { width: 100%; height: 100%; display: block; }
+
+        /* پنل تنظیمات (در پایین صفحه) */
+        .controls-panel {
+            background: white; padding: 15px; border-top-left-radius: 20px; border-top-right-radius: 20px;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.1); z-index: 10; display: flex; flex-direction: column; gap: 10px;
+        }
+        .inputs-row { display: flex; gap: 10px; justify-content: space-between; }
+        .input-group { flex: 1; display: flex; flex-direction: column; align-items: center; }
+        .input-group label { font-size: 11px; color: #7f8c8d; margin-bottom: 5px; }
+        .input-group input { 
+            width: 100%; padding: 8px; border: 1px solid #bdc3c7; border-radius: 8px; 
+            text-align: center; font-size: 14px; font-weight: bold; color: #2c3e50;
+        }
+        .btn-update {
+            background: #3498db; color: white; border: none; padding: 12px;
+            border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .btn-update:active { background: #2980b9; transform: scale(0.98); }
+
+        /* دکمه شناور لیست برش */
+        .fab-btn {
+            position: absolute; bottom: 140px; left: 20px;
+            background: #e67e22; color: white; border: none; padding: 12px 20px;
+            border-radius: 30px; font-size: 14px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            cursor: pointer; z-index: 15; display: flex; align-items: center; gap: 8px;
+        }
+
+        /* پنجره (Modal) لیست برش */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 100;
+        }
+        .modal-content {
+            background: white; width: 90%; max-height: 80vh; border-radius: 15px; padding: 20px;
+            display: flex; flex-direction: column; overflow-y: auto;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .modal-header h2 { font-size: 16px; color: #2c3e50; }
+        .close-btn { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; }
+        th, td { border: 1px solid #ddd; padding: 8px; }
+        th { background-color: #34495e; color: white; }
+        
+        .btn-export {
+            margin-top: 15px; background: #27ae60; color: white; border: none; padding: 10px;
+            border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🪚 کات مستر | نسخه ۲.۰</h1>
+    </div>
+
+    <div class="viewport">
+        <div id="canvas-container"></div>
+        <button class="fab-btn" onclick="openModal()">📋 لیست برش</button>
+    </div>
+
+    <div class="controls-panel">
+        <div class="inputs-row">
+            <div class="input-group">
+                <label>عرض (W)</label>
+                <input type="number" id="width" value="60" min="20">
+            </div>
+            <div class="input-group">
+                <label>ارتفاع (H)</label>
+                <input type="number" id="height" value="80" min="20">
+            </div>
+            <div class="input-group">
+                <label>عمق (D)</label>
+                <input type="number" id="depth" value="50" min="20">
+            </div>
+            <div class="input-group">
+                <label>ضخامت (T)</label>
+                <input type="number" id="thickness" value="1.6" step="0.1" min="1">
+            </div>
+        </div>
+        <button class="btn-update" onclick="generateCabinet()">🔄 ساخت و محاسبه</button>
+    </div>
+
+    <!-- Modal لیست برش -->
+    <div class="modal-overlay" id="cutListModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 لیست برش قطعات</h2>
+                <button class="close-btn" onclick="closeModal()">✖ بستن</button>
+            </div>
+            <table id="cutListTable">
+                <thead>
+                    <tr>
+                        <th>نام قطعه</th>
+                        <th>طول</th>
+                        <th>عرض</th>
+                        <th>تعداد</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <button class="btn-export" onclick="exportToCSV()">💾 دانلود فایل اکسل (CSV)</button>
+        </div>
+    </div>
+
+    <script>
+        let globalCutList = []; // برای ذخیره لیست جهت خروجی اکسل
+
+        // ==========================================
+        // ۱. محاسبه لیست برش
+        // ==========================================
+        function calculateCutList(w, h, d, t) {
+            let list = [];
+            list.push({ name: "بدنه (چپ/راست)", length: h, width: d, qty: 2 });
+            let innerWidth = w - (t * 2);
+            list.push({ name: "کف و سقف", length: innerWidth, width: d, qty: 2 });
+            let backH = h - (t * 2) - 0.2;
+            let backW = w - (t * 2);
+            list.push({ name: "فیبر پشت", length: backH, width: backW, qty: 1 });
+            let shelfW = innerWidth - 0.2;
+            let shelfD = d - 2;
+            list.push({ name: "طبقه", length: shelfW, width: shelfD, qty: 1 });
+            let doorW = (w / 2) - 0.15;
+            let doorH = h - 0.3;
+            list.push({ name: "درب", length: doorH, width: doorW, qty: 2 });
+            return list;
+        }
+
+        function updateTable(list) {
+            globalCutList = list; // ذخیره سراسری
+            const tbody = document.querySelector("#cutListTable tbody");
+            tbody.innerHTML = "";
+            list.forEach(item => {
+                let row = `<tr>
+                    <td>${item.name}</td>
+                    <td>${item.length.toFixed(1)}</td>
+                    <td>${item.width.toFixed(1)}</td>
+                    <td>${item.qty}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // ==========================================
+        // ۲. محیط سه بعدی و ساخت قطعات جداگانه
+        // ==========================================
+        let scene, camera, renderer, cabinetGroup;
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(120, 100, 150);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(50, 100, 50);
+            scene.add(dirLight);
+
+            // گروه برای قرار دادن تمام قطعات کابینت درون آن
+            cabinetGroup = new THREE.Group();
+            scene.add(cabinetGroup);
+
+            // کنترل چرخش با لمس و ماوس
+            let isDragging = false;
+            let prevPos = { x: 0, y: 0 };
+            
+            container.addEventListener('mousedown', (e) => { isDragging = true; prevPos = { x: e.offsetX, y: e.offsetY }; });
+            container.addEventListener('mousemove', (e) => {
+                if (isDragging && cabinetGroup) {
+                    cabinetGroup.rotation.y += (e.offsetX - prevPos.x) * 0.01;
+                    cabinetGroup.rotation.x += (e.offsetY - prevPos.y) * 0.01;
+                    prevPos = { x: e.offsetX, y: e.offsetY };
+                }
+            });
+            container.addEventListener('mouseup', () => { isDragging = false; });
+            
+            container.addEventListener('touchstart', (e) => { isDragging = true; prevPos = { x: e.touches[0].clientX, y: e.touches[0].clientY }; });
+            container.addEventListener('touchmove', (e) => {
+                if (isDragging && cabinetGroup) {
+                    cabinetGroup.rotation.y += (e.touches[0].clientX - prevPos.x) * 0.01;
+                    cabinetGroup.rotation.x += (e.touches[0].clientY - prevPos.y) * 0.01;
+                    prevPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            });
+            container.addEventListener('touchend', () => { isDragging = false; });
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        // ==========================================
+        // ۳. ساخت ابعاد واقعی قطعات در فضا
+        // ==========================================
+        function build3DCabinet(w, h, d, t) {
+            // پاک کردن کابینت قبلی
+            while(cabinetGroup.children.length > 0){ 
+                cabinetGroup.remove(cabinetGroup.children[0]); 
+            }
+
+            const materialBody = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.8 }); // رنگ چوب
+            const materialDoor = new THREE.MeshStandardMaterial({ color: 0xf5f5dc, roughness: 0.5 }); // رنگ درب
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0x333333 });
+
+            // تابع کمکی برای ساخت پنل
+            function createPanel(pw, ph, pd, px, py, pz, material) {
+                const geo = new THREE.BoxGeometry(pw, ph, pd);
+                const mesh = new THREE.Mesh(geo, material);
+                mesh.position.set(px, py, pz);
+                const edges = new THREE.EdgesGeometry(geo);
+                mesh.add(new THREE.LineSegments(edges, edgeMat));
+                cabinetGroup.add(mesh);
+            }
+
+            // تبدیل به سانتی متر (مقیاس 1 به 1)
+            // برای اینکه کابینت روی محور Y (ارتفاع) درست قرار بگیرد، مرکز آن را تنظیم می‌کنیم
+            const halfW = w / 2;
+            const halfH = h / 2;
+            const halfD = d / 2;
+
+            // ۱. بدنه چپ
+            createPanel(t, h, d, -halfW + (t/2), 0, 0, materialBody);
+            // ۲. بدنه راست
+            createPanel(t, h, d, halfW - (t/2), 0, 0, materialBody);
+
+            // ۳. کف (بین دو بدنه)
+            const innerW = w - (t * 2);
+            createPanel(innerW, t, d, 0, -halfH + (t/2), 0, materialBody);
+
+            // ۴. سقف (بین دو بدنه)
+            createPanel(innerW, t, d, 0, halfH - (t/2), 0, materialBody);
+
+            // ۵. فیبر پشت (کمی عقب تر)
+            createPanel(innerW, h - (t*2), t, 0, 0, -halfD + (t/2), materialBody);
+
+            // ۶. طبقه وسط
+            createPanel(innerW - 0.2, t, d - 2, 0, 0, 0.5, materialBody);
+
+            // ۷. درب چپ (روی بدنه قرار می‌گیرد)
+            const doorW = (w / 2) - 0.15;
+            const doorH = h - 0.3;
+            // زاویه درب برای اینکه باز به نظر برسد
+            const leftDoorGeo = new THREE.BoxGeometry(doorW, doorH, t);
+            const leftDoor = new THREE.Mesh(leftDoorGeo, materialDoor);
+            leftDoor.position.set(-doorW/2, 0, halfD + (t/2));
+            leftDoor.add(new THREE.LineSegments(new THREE.EdgesGeometry(leftDoorGeo), edgeMat));
+            // چرخش درب به سمت بیرون
+            leftDoor.rotation.y = -0.5; 
+            cabinetGroup.add(leftDoor);
+
+            // ۸. درب راست
+            const rightDoorGeo = new THREE.BoxGeometry(doorW, doorH, t);
+            const rightDoor = new THREE.Mesh(rightDoorGeo, materialDoor);
+            rightDoor.position.set(doorW/2, 0, halfD + (t/2));
+            rightDoor.add(new THREE.LineSegments(new THREE.EdgesGeometry(rightDoorGeo), edgeMat));
+            rightDoor.rotation.y = 0.5;
+            cabinetGroup.add(rightDoor);
+        }
+
+        // ==========================================
+        // ۴. توابع اصلی و دکمه‌ها
+        // ==========================================
+        function generateCabinet() {
+            const w = parseFloat(document.getElementById('width').value);
+            const h = parseFloat(document.getElementById('height').value);
+            const d = parseFloat(document.getElementById('depth').value);
+            const t = parseFloat(document.getElementById('thickness').value);
+
+            const parts = calculateCutList(w, h, d, t);
+            updateTable(parts);
+            build3DCabinet(w, h, d, t);
+        }
+
+        function openModal() { document.getElementById('cutListModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('cutListModal').style.display = 'none'; }
+
+        // خروجی اکسل (CSV)
+        function exportToCSV() {
+            if (globalCutList.length === 0) return;
+            
+            let csvContent = "\uFEFF"; // برای پشتیبانی از فارسی در اکسل
+            csvContent += "نام قطعه,طول (cm),عرض (cm),تعداد\n";
+            
+            globalCutList.forEach(row => {
+                csvContent += `${row.name},${row.length.toFixed(1)},${row.width.toFixed(1)},${row.qty}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "cut_list.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        window.onload = () => {
+            init3D();
+            generateCabinet();
+        };
+
+        window.onresize = () => {
+            const container = document.getElementById('canvas-container');
+            if (camera && renderer) {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        };
+    </script>
+</body>
+</html>
